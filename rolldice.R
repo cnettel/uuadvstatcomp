@@ -1,5 +1,4 @@
 repeat {
-	dice <- sample(1:6, 3)
-
-	if (sum(dice) == 18) break()
+	dice <- sample(1:6, 3, replace=TRUE);
+	if (sum(dice) == 18) break();
 }
