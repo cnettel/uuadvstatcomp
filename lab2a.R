@@ -51,5 +51,22 @@ min<-d[-length(d)]
 max<-d[-1]
 
 
-
 system.time(parLapply(cl=cl,X = Map(c,min,max),fun = f2))
+
+
+# memoise -----------------------------------------------------------------
+
+library(memoise)
+fib <- function(n) {
+  if (n < 2) return(1)
+  fib(n - 2) + fib(n - 1)
+}
+fib2 <- memoise(function(n) {
+  if (n < 2) return(1)
+  fib2(n - 2) + fib2(n - 1)
+})
+
+fib3 <- memoise(fib)
+fib(28)
+fib2(28)
+fib3(28)
