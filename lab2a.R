@@ -63,3 +63,25 @@ workers_to_test <- c(2, 4, 8, 16, 24)
 workers_speed <- sapply(workers_to_test, timing)
 plot(workers_to_test, workers_speed, type = "b")
 
+
+###########################################
+## Memoisation
+
+library(memoise)
+fib <- function(n) {
+  if (n < 2) return(1)
+  fib(n - 2) + fib(n - 1)
+}
+
+fib2 <- memoise(function(n) {
+  if (n < 2) return(1)
+  fib2(n - 2) + fib2(n - 1)
+})
+
+fib3 <- memoise(fib)
+
+## fib2 fast even the first time
+## fib3 the second time
+first_time  <- c(system.time(fib(28))[3], system.time(fib2(28))[3], system.time(fib3(28))[3])
+second_time <- c(system.time(fib(28))[3], system.time(fib2(28))[3], system.time(fib3(28))[3])
+
