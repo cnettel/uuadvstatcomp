@@ -86,3 +86,46 @@ system.time(fib2(28)) # 0.005s  # Retry: 0.001s
 system.time(fib3(28)) # 0.728s  # Retry: 0.728s
 
 forget(fib3)
+
+
+
+# ggplot ------------------------------------------------------------------
+
+library(ggplot2)
+
+## Examples
+str(mpg)
+qplot(displ, hwy, data = mpg)
+qplot(displ, hwy, data = mpg, color = drv)
+qplot(displ, hwy, data = mpg, geom = c("point", "smooth")) 
+qplot(displ, hwy, data = mpg, geom = c("point", "smooth"), method = "lm") 
+qplot(displ, hwy, data = mpg, geom = c("point", "smooth"), method = "lm", color = drv)
+
+gr <- qplot(displ, hwy, data = mpg, geom = c("point", "smooth"), method = "lm", color = drv)
+gr + theme(panel.background = element_rect(fill = "pink"))
+
+## Exercice
+# 1. Load the data set diamonds from ggplot2.
+head(diamonds)
+
+# 2. Look at the variables carat and price in the dataframe and plot them against each other.
+qplot(carat, price, data = diamonds, geom = 'point')
+
+# 3. Look at the relation between carat and price for different diamond colors.
+qplot(carat, price, data = diamonds, geom = 'point', color = color)
+
+# 4. Add a smoother to the plot.
+qplot(carat, price, data = diamonds, geom = c('point','smooth'), color = color, method = 'loess')
+
+# 5. Change the title of legend of your plot to “New legends”. 
+# Tips: look at the theme() help to find out how to change the title of legend.
+qplot(carat, price, data = diamonds, geom = c('point','smooth'), color = color, method = 'loess')+
+  scale_color_discrete(name='Diamond\ncolors:')
+
+# 6. Find out how to draw a boxplot to check the distribution of price/carat for different colors.
+qplot(color, price/carat, data = diamonds, geom = 'boxplot', fill = color)
+
+# Add and commit a representative part of your plot work to your github project.
+# For reference, here are very useful videos to learn more about ggplot2:
+# Plotting with ggplot2: Part 1: https://www.youtube.com/watch?v=HeqHMM4ziXA
+# Plotting with ggplot2: Part 2: https://www.youtube.com/watch?v=n8kYa9vu1l8
