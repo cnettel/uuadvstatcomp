@@ -45,3 +45,21 @@ g <- function(x) {
 # Takes about 8 seconds, but smaller values of subdivisions makes the function not work
 integral <- system.time(integrate(g, -7e5, 7e5, subdivisions = 1e7))
 
+# Parallelization, divide it into 14 intervals of length 1e5
+library(parallel)
+int_divide <- function(w) {
+  integrate(function(x) x*sin(x), -7e5 + w, -6e5 + w, subdivisions = 1e7)$value
+}
+
+# Create a function of the number of workers to use to time it
+timing <- function(workers) {
+  cl <- makePSOCKcluster(workers)
+  elapsed <- system.time(parSapply(cl, seq(0, 13e5, length.out = 14), int_divide))[3]
+  elapsed
+}
+workers_to_test <- c(2, 4, 8, 16, 24)
+
+## WARNING! This is slow (because of the creation of clusters)
+workers_speed <- sapply(workers_to_test, timing)
+plot(workers_to_test, workers_speed, type = "b")
+
