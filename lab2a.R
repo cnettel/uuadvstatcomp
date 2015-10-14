@@ -1,3 +1,4 @@
+###########################################
 ## Optimization
 
 # Function to minimize
@@ -34,5 +35,13 @@ optplot(opt2, pch = 2)
 optplot(opt2, pch = 3)
 par(mfrow = c(1,1))
 
+###########################################
+## Integration
 
+g <- function(x) {
+  x * sin(x)
+}
+
+# Takes about 8 seconds, but smaller values of subdivisions makes the function not work
+integral <- system.time(integrate(g, -7e5, 7e5, subdivisions = 1e7))
 
