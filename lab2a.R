@@ -21,3 +21,23 @@ print(Reduce("+",intVal))
 cl <- makePSOCKcluster(16)
 system.time(intVal <- parLapply(cl, (-7:6)*1e5, (function(x) { integrate(function (x) { x*sin(x) }, x, x+1e5, subdivisions = 1e8)$value})))
 print(Reduce("+",intVal))
+
+#----------- FUNCTIONAL OPERATORS (Memoisation) -----------#
+library(memoise)
+fib <- function(n) {
+    if (n < 2) return(1)
+    fib(n - 2) + fib(n - 1)
+}
+
+fib2 <- memoise(function(n) {
+    if (n < 2) return(1)
+    fib2(n - 2) + fib2(n - 1)
+})
+
+fib3 <- memoise(fib)
+
+system.time(fib(28))
+system.time(fib2(28))
+system.time(fib3(28))
+forget(fib2)
+forget(fib3)
