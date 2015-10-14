@@ -70,3 +70,35 @@ fib3 <- memoise(fib)
 fib(28)
 fib2(28)
 fib3(28)
+
+# library(ggplot2) --------------------------------------------------------
+
+library(ggplot2)
+str(mpg)
+qplot(displ, hwy , data=mpg)
+qplot(displ, hwy , data=mpg, color =drv)
+qplot(displ,hwy,data=mpg,geom=c('point','smooth'),method='loess')
+#You can check the linear relationship for different groups:
+qplot(displ,hwy,data=mpg,color=drv,geom=c('point','smooth'),method='lm')
+
+
+# As we mentioned, one benefit of these plots is that you can modify them after they have been created.
+# For example, you can use theme() to modify theme setting. We assign the graph to variable:gr <-
+# and then we can modify it. Let's change the color of the rectangluar elements to pink:
+
+gr<-qplot(displ,hwy,data=mpg,color=drv,geom=c('point','smooth'),method='lm')
+gr + theme(panel.background = element_rect(colour = "black"))
+gr + theme(panel.background = element_rect(colour = "blue"))
+
+
+#Load the data set diamonds from ggplot2.
+str(diamonds)
+qplot(carat,price,data=diamonds)
+qplot(carat,price,data=diamonds,color=color)
+qplot(carat,price,data=diamonds,,color=color,geom=c('point','smooth'),method='lm')
+gr<-qplot(carat,price,data=diamonds,color=color,geom=c('point','smooth'),method='loess')
+gr + theme(legend.text='New legends')
+?theme()
+#Find out how to draw a boxplot to check the distribution of price/carat for different colors
+qplot(x=color,y=price/carat,data=diamonds,color=color,geom='boxplot')
+?qplot()
