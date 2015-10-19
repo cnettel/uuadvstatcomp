@@ -28,7 +28,7 @@ Fun1 <- function(x) {
   x*sin(x)
 }
 
-Integral <- integrate(Fun1, lower = -7e5, upper = 7e5,
+integrate(Fun1, lower = -7e5, upper = 7e5,
           subdivisions = 1e7)
 
 system.time (integrate(Fun1, lower = -7e5, upper = 7e5,
@@ -36,11 +36,13 @@ system.time (integrate(Fun1, lower = -7e5, upper = 7e5,
 
 library(parallel)
 
-cl <- makePSOCKcluster(2)
+Ncores <- detectCores() - 1
+
+cl <- makePSOCKcluster(Ncores)
 
 system.time(parLapply(cl, c(-5e5, 5e5), (integrate(Fun1, lower = -7e5, upper = 7e5,
                                           subdivisions = 1e7))))
-
+stopCluster(cl)
 ### 4. Functional Operators ###
 
    # Memoisation #
@@ -120,8 +122,13 @@ qplot(carat, price)
 #3. Look at the relation between carat and price for different diamond colors.
 qplot(carat, price, color = color)
 
+qplot(log(carat), log(price), color = color)
 #4. Add a smoother to the plot.
-qplot(carat, price,  geom=c("point","smooth"))
+qplot(carat, price, color = color, geom=c("point","smooth"))
+
+library(mgcv)
+qplot(carat, price, color = color, geom = c("point", "smooth"),
+      method = "gam", formula = y ~ s(x, bs = "cs"))
 
 #5. Change the title of legend of your plot to "New legends". 
    #Tips: look at the theme() help to find out how to change the title of legend.
@@ -150,13 +157,8 @@ egr+ labs(color = "New legends") # Did the work correctlly
 #6. Find out how to draw a boxplot to check 
   #the distribution of price/carat for different colors.
 
-qplot(factor(color), price/carat, color= color, geom= c("boxplot", "jitter"))
+qplot(factor(color), price/carat, color= color, geom= "jitter")
 
-
-
-
-
-
-
+qplot(factor(color), price/carat, color= color, geom= "boxplot")
 
 ### 6. Getting a SUPR account (Done! Account is set up by using xzh@du.se) ###
