@@ -29,20 +29,37 @@ Fun1 <- function(x) {
 }
 
 integrate(Fun1, lower = -7e5, upper = 7e5,
-          subdivisions = 1e7)
+          subdivisions = 1e7, stop.on.error = TRUE)
 
 system.time (integrate(Fun1, lower = -7e5, upper = 7e5,
-                       subdivisions = 1e7))
+                       subdivisions = 1e7, stop.on.error = TRUE))
 
 library(parallel)
 
 Ncores <- detectCores() - 1
 
-cl <- makePSOCKcluster(Ncores)
+clus <- makePSOCKcluster(Ncores)
 
-system.time(parLapply(cl, c(-5e5, 5e5), (integrate(Fun1, lower = -7e5, upper = 7e5,
-                                          subdivisions = 1e7))))
-stopCluster(cl)
+# parLapply(clus, 1:5,function(x) x*sin(x))
+
+clusterEvalQ(clus, Integral.function <- function(l,u,s){
+  result <- integrate(function(x) {x*sin(x)}, lower = l, upper = u, 
+                      subdivisions = s, stop.on.error = TRUE)
+  return(result)}) 
+
+Integral.function <- function(l,u,s){
+  result <- integrate(function(x) {x*sin(x)}, lower = l, upper = u, 
+                      subdivisions = s, stop.on.error = TRUE)
+  return(result)}
+
+
+clusterExport(clus,"Integral.function") 
+
+inte1 <- parSapply(clus,-7e5:7e5, function(x) Integral.function(-7e5,7e5,1e7))
+
+stopCluster(clus)
+
+
 ### 4. Functional Operators ###
 
    # Memoisation #
@@ -125,6 +142,10 @@ qplot(carat, price, color = color)
 qplot(log(carat), log(price), color = color)
 #4. Add a smoother to the plot.
 qplot(carat, price, color = color, geom=c("point","smooth"))
+
+#got warning: geom_smooth: method="auto" and size of largest group is >=1000, 
+ #so using gam with formula: y ~ s(x, bs = "cs"). 
+  #Use 'method = x' to change the smoothing method.
 
 library(mgcv)
 qplot(carat, price, color = color, geom = c("point", "smooth"),
