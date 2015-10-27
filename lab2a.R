@@ -22,4 +22,9 @@ optimize(f=myfun, interval=c(-1000,1000))    # min: 8.71
 # The value of the minimum varies by up to 0.5.
 # There is no guarantee that this optimum is the global optimum, but it is the best over -1000,1000.
 
+### Integrate a function
 
+multsin <- function(x) {x*sin(x)} # create a new function
+
+system.time(integrate(multsin,lower=-7E5,upper=7E5,subdivisions=1E7)) # integrate it over large range and small steps
+# takes ~13 seconds
