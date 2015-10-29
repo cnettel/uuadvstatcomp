@@ -41,7 +41,7 @@ p_multsin(c(-7E5,7E5)) # test function: same result as before so OK
 
 p_integrate <- function(nodes) {
   cl        <- makePSOCKcluster(nodes)
-  intervals <- seq(from = -7E5, to = 7E5, length.out = nodes)
+  intervals <- seq(from = -7E5, to = 7E5, length.out = nodes + 1) # creates nodes intervals
   min       <- intervals[-length(intervals)] # create vector of min values to use as lower arguments to integrate function
   max       <- intervals[-1]                 # create vector of max values to use as upper arguments to integrate function
   
@@ -55,4 +55,29 @@ system.time({p_integrate(2)})  # takes 4 sec
 system.time({p_integrate(4)})  # takes 2.9 sec --> best
 system.time({p_integrate(8)})  # takes 3 sec
 # Speed up 4-fold using parallel computing on 4 nodes (from 12 to 3 seconds)
+
+### Functional operators: memoisation
+
+require(memoise)
+
+fib <- function(n) {  # no memoisation
+  if (n < 2) return(1)
+  fib(n - 2) + fib(n - 1)
+}
+
+fib2 <- memoise(function(n) {
+  if (n < 2) return(1)
+  fib2(n - 2) + fib2(n - 1)
+})
+
+fib3 <- memoise(fib)
+
+system.time(fib(28))   # takes 1.6 sec
+system.time(fib2(28))  # takes 0.01 sec --> fastest
+system.time(fib3(28))  # takes 1.6 sec
+# forget(fib3)
+
+### Domain specific languages
+
+
 
