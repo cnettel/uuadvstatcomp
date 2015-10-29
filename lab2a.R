@@ -77,7 +77,33 @@ system.time(fib2(28))  # takes 0.01 sec --> fastest
 system.time(fib3(28))  # takes 1.6 sec
 # forget(fib3)
 
-### Domain specific languages
+### Domain specific languages: ggplot
 
+library(ggplot2)
 
+# Lab example
+str(mpg) # dataframe, 234 obs and 11 variables
+qplot(displ, hwy , data=mpg)                      # relation between engine displacement and highway miles per gallon
+qplot(displ, hwy , data=mpg, color =drv)          # color legend: drive
+qplot(displ, hwy, data =mpg, geom=c("point","smooth")) # add global statistic: smooth
+qplot(displ, hwy, data =mpg, geom=c("point","smooth"),method="lm") # add global statistic: linear model
+qplot(displ, hwy, data =mpg, geom=c("point","smooth"),method="lm",color=drv) # add local statistic by drive type
+gr <- qplot(displ, hwy, data =mpg, geom=c("point","smooth"),method="lm",color=drv)
+gr + theme(panel.background = element_rect(fill = "pink")) # change background color
+
+# Exercise
+str(diamonds) # dataframe, 53940 obs and 10 variables
+qplot(carat, price , data=diamonds)               # relation between carat and price (expected to increase): looks exponential
+qplot(carat, price , data=diamonds, color=color)  # color legend: color --> increase steeper in alphabetical color order
+qplot(carat, price , data=diamonds, geom=c("point","smooth"),color=color) # add local statistic by color type: difficult to see
+qplot(carat, price , data=diamonds, geom=c("smooth"),color=color) # remove points to see potential differences between smooths
+qplot(carat, price , data=diamonds, geom=c("point","smooth")) # add global statistic
+
+gr <- qplot(carat, price , data=diamonds, color=color)
+gr + scale_color_discrete(name='Diamond color') # change title of color legend
+
+qplot(color, price/carat , data=diamonds, geom="boxplot") # draw boxplot of price/carat for the different colors
+
+# END
+###########################################################################
 
