@@ -14,18 +14,34 @@ optimise(SumFun, c(9,12))
 
 optimise(SumFun, c(10,11))
 
+#the term sin(100x) is causing problems 
+#because the behavior of the function will change due to a small change of x.
+
+SumFun <- function(x) {
+  (x - 3)^2 + 2*(x - 3)^2 + 3*(x - 15)^2 + sin(x)
+}      
+
+optimise(SumFun, c(0,100))
+
+optimise(SumFun, c(0,15))
+
+optimise(SumFun, c(9,12))
+
+optimise(SumFun, c(10,11))
+
 ### 2. Adding file lab2a.R in the repository C:\ uuadvstatcomp ###
 
 ### 3. Integrating a function ###
 
 ###############################
 #                             #
-# I have PROBLEM here!!!      #
+#      Parallel               #
 #                             #
 ###############################
 
 Fun1 <- function(x) {
-  x*sin(x)
+  fval <- x*sin(x)
+  return (fval)
 }
 
 integrate(Fun1, lower = -7e5, upper = 7e5,
@@ -34,13 +50,13 @@ integrate(Fun1, lower = -7e5, upper = 7e5,
 system.time (integrate(Fun1, lower = -7e5, upper = 7e5,
                        subdivisions = 1e7, stop.on.error = TRUE))
 
+
+########################################################################
 library(parallel)
 
 Ncores <- detectCores() - 1
 
 clus <- makePSOCKcluster(Ncores)
-
-# parLapply(clus, 1:5,function(x) x*sin(x))
 
 clusterEvalQ(clus, Integral.function <- function(l,u,s){
   result <- integrate(function(x) {x*sin(x)}, lower = l, upper = u, 
@@ -55,10 +71,48 @@ Integral.function <- function(l,u,s){
 
 clusterExport(clus,"Integral.function") 
 
-inte1 <- parSapply(clus,-7e5:7e5, function(x) Integral.function(-7e5,7e5,1e7))
+inte1 <- parSapply(clus,-7e5:7e5, function(x) Integral.function(-7e5,7e5,1e7)) 
+#The above code does not work due to the attributes in upper and lower
+# Upper and lower should be functions
+###############################################################################
+
+library(parallel)
+
+Fun1 <- function(x) {
+  fval <- x*sin(x)
+  return (fval)
+}
+
+Lower<-function(x){seq(from = (-7)*10^5,to = (7)*10^5,length.out = 5)[1:4][x]}
+
+Upper<-function(x){seq(from = (-7)*10^5,to = (7)*10^5,length.out = 5)[2:5][x]}
+
+Ncores <- detectCores() 
+
+clus <- makePSOCKcluster(Ncores)
+
+clusterExport(clus,"Fun1")
+
+clusterExport(clus,"Lower")
+
+clusterExport(clus,"Upper")
+
+sum(unlist(parLapply(clus,1:Ncores,
+                     function(x){ 
+                       integrate(f = Fun1,lower = Lower(x),upper = Upper(x),
+                                 subdivisions = 10^7)$value}
+)))
+#[1] 1356376
+
+system.time(
+  sum(unlist(parLapply(clus,1:Ncores,
+                       function(x){ 
+                         integrate(f = Fun1,lower = Lower(x),upper = Upper(x),
+                                   subdivisions = 10^7)$value}
+  )))
+)
 
 stopCluster(clus)
-
 
 ### 4. Functional Operators ###
 
@@ -171,9 +225,9 @@ egr <- egr+guides(colour = guide_legend(override.aes = list(alpha = 1)))
 egr+ labs(color = "New legends") # Did the work correctlly
 
 #########################################################
-#
-# ??????? How can i do by using theme ????????
-#
+
+
+
 ########################################################
 #6. Find out how to draw a boxplot to check 
   #the distribution of price/carat for different colors.
