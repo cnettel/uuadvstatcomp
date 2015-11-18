@@ -1,0 +1,225 @@
+﻿<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <style>
+        code, samp, kbd {
+	font-family: "Courier New", Courier, monospace, sans-serif;
+	text-align: left;
+	color: #555;
+            font-size: 13px;
+	}
+pre code {
+	line-height: 1.6em;	
+    font-size: 11px;
+	}
+pre {
+	padding: 0.1em 0.5em 0.3em 0.7em;
+	border-left: 11px solid #ccc;
+	margin: 1.7em 0 1.7em 0.3em;
+	overflow: auto;
+	width: 93%;
+	}
+/* target IE7 and IE6 */
+*:first-child+html pre {
+	padding-bottom: 2em;
+	overflow-y: hidden;
+	overflow: visible;
+	overflow-x: auto; 
+	}
+* html pre { 
+	padding-bottom: 2em;
+	overflow: visible;
+	overflow-x: auto;
+	}
+    </style>
+    <meta charset="utf-8" />
+    <title></title>
+</head>
+<body>
+<h1>Lab block 3</h1>
+    In this lab, we are going to explore numerical accuracy and performance in Rcpp.
+
+    <section>
+        <h2>
+            Preparations
+        </h2>
+        <p>
+            Setting up Rcpp can be a bit cumbersome on a Windows or Mac machine, while it generally works in Linux. The reason for this is that
+            in Linux, R packages are (almost) always distributed as source code. This means that any package including C or Fortran code is compiled
+            on your computer when you install it. Therefore, if you have a working R setup where you can install any package, you can install
+            and use Rcpp as well.            
+        </p>
+        <p>
+            On Windows and Mac, on the other hand, R packages are generally distributed in a <i>binary</i> form, precompiled for your version of R and version
+            of the operating system. Most non-developer users do not have a C++ compiler. Even if you do, that compiler might not be properly set up for use from R
+            (this latter point is especially common on Windows). You can read in the <a href="https://cran.r-project.org/doc/manuals/R-admin.html">R Installation and Administration</a> manual for
+            more details. For this lab, though, we will use the Smog cloud resource once again, where we already have images with R properly installed. Refer to the previous
+            lab for details on how to create an instance, and associating it with a floating IP which you can connect to from your computer.
+        </p>
+        <p>
+            Since our cloud instances do not show a graphical interface, it can seem cumbersome to edit files and work in the R environment at the same time.
+            A suggestion might be to open two ssh sessions. That way, you can have an editor open in one, and the R prompt in another.
+        </p>
+        <p>
+            Make sure that you have Rcpp installed.
+        </p>
+        <pre>
+install.packages("Rcpp")
+library(Rcpp)
+        </pre>
+       </section>
+    <section>
+        <h2>Baby steps</h2>
+        <p>
+            Now, let's create our first C++ function in R. Remember that we have two main options to quickly load C++ code using Rcpp, <code>cppFunction</code> and <code>sourceCpp</code>. Both will
+            invoke the C++ compiler on the fly to actually turn your source code into machine instructions for your computer, and also automatically wire up that code with the R environment.
+        </p>
+        <p>
+            A function in C++ always has a declared return type, and 0 or more parameters. Let's start with the following function:
+        </p>
+        <pre>
+double ourFunc()
+{
+    return runif(1)[0];
+}
+        </pre>
+        <p>
+            <code>runif</code> is a part of R. Some of the standard R functions are nicely exposed in Rcpp. This function returns a value of <code>NumericVector</code> type. We want to access the first element
+            to return it as a single scalar. (In C++, there are true scalars.) Note that the first element has index 0 in C++, but index 1 in R.
+        </p>
+        <p>If we want to use this function with <code>cppFunction</code> we need to write it as a string parameter to that function. We store the resulting R function (which calls the C++ function)
+            by binding it in the environment, just like we always do when declaring functions in R.
+        </p>
+        <pre>
+Rfunc <- cppFunction('double ourFunc()
+{
+    return runif(1)[0];
+}');
+        </pre>
+        <p>
+            Try running this function. <b>What do you write? What results do you get?</b>
+        </p>
+        <p>
+            In R, you can generally inspect a function by just writing its name and then see its "contents". <b>What's the contents of this function?</b>
+            (Hint: one classic way of calling arbitrary external libraries written in other languages from within R is the .Call function.)
+        </p>
+        <p>
+            Both when using R and when using Rcpp, it can be convenient to define new functions directly at the prompt. However, it can easily get rather tedious, especially
+            when the actual function is C++ code enclosed in an R string. In R, we use the function <code>source</code> to load an R source file (including any function definitions). We
+            can load a C++ source file in a similar way, using <code>sourceCpp</code>. Save the following code as the file "lab3_1.cpp".
+        </p>
+        <pre>
+#include &lt;Rcpp.h&gt;
+
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double ourFunc()
+{
+    return runif(1)[0];
+}
+        </pre>
+        <p>
+            Source the file using <code>sourceCpp</code>. Note that there are some differences here. We need to explicitly state what libraries we are using in the C++ source code, <code>cppFunction</code> does some
+            default "magic" for us. The include and using namespace lines are needed to be able to call ourFunc directly. The cryptic Rcpp::export line is needed to tell that this function should be exposed in R. It's
+            really a comment in standard C++. Now, we also don't explicitly assign the R function name. The name of the C++ function also becomes the name of the corresponding R function. Go ahead, try using <code>ourFunc</code>.
+            <b>Does it work?</b>
+        </p>
+    </section>
+    <section>
+        <h2>Indefinite sums</h2>
+        <p>
+            <a href="https://en.wikipedia.org/wiki/Taylor_series">Taylor expansions</a> is one way to easily create a long sum of terms. Internally in CPUs, functions like log and sin can be approximated to the accuracy necessary to provide "correct" results with the limitations given
+            by floating point math by a combination of tabulated values and polynomial approximations like Taylor expansions. Sometimes, Taylor expansions also result in terms of alternating signs, which can show cancellation errors.
+        </p>
+        <p>
+            In this task, we will use the Taylor expansion for log(1-<emph>x</emph>) to approximate the logarithm of a number (it's found at the link above). We choose this function since the expansion is neat and simple. Since
+            all terms have the same sign, it's also somewhat kind.
+        </p>
+        <p>
+            Create the following code in "lab3_2.cpp" and source it.
+        </p>
+        <pre>
+#include <Rcpp.h>
+
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double logapprox(double x, int k)
+{
+	x = 1.0 - x;
+
+	float sum = 0;	
+	for (int i = 1; i <= k; i++)
+	{
+		float term = pow(x,i);
+		sum -= 1.0 / i * term;
+	}
+
+	return sum;
+}
+        </pre>
+        <p>
+            This function accepts a value x and a positive number of expansion terms k. Go ahead and try logapprox(0.5, 10)? Is the value close to the log of 0.5? How many terms do you need to make it "close"? (Hint: Look at the expression <code>logapprox(0.5, k)-log(0.5,k)</code> for different k.) <b>When does increasing k stop improving the error?</b>
+        </p>
+        <p>
+            Now assume we want to approximate the logarithm of 0.01 instead. <b>Is the same value of <code>k</code> applicable? How big is the best error you can achieve?</b>
+        </p>
+        <p>
+            Note that this C++ code uses <code>float</code>. <code>float</code> are single-point precision floating point values. This means they use half the memory and are sometimes faster, but also less accurate. Change logapprox to use double instead. <b>Does the error decrease for 0.5 and 0.01 with the same k as before? What happens now if you
+            increase k?</b>
+        </p>
+        <p>
+            For double-precision values you expect approximately 15 significant digits and for single precision 8 or so. If we were dealing with a "good" summation method, we could hope to approach this. Do you get that result?
+        </p>
+        <p>
+            Can you see any possible improvements to this scheme? In the lecture we discussed doing partial summations (e.g. summing over columns and then rows, rather than adding all elements in a matrix), summing terms in decreasing or increasing order,
+            and multi-precision/compensated summation algorithms. <b>Which ones of these do you think could be most relevant/easy to try here?</b>
+        </p>
+        <p>
+            You <em>might</em> want to try implementing <a href="https://en.wikipedia.org/wiki/Kahan_summation_algorithm">Kahan's summation algorithm</a>. Try just looking at the top pseudocode in that example. To make things easier, the following version of logapprox is more similar in structure
+            to a typical summation.
+        </p>
+<pre>
+double logapprox(double x, int k)
+{
+	x = 1.0 - x;
+
+	float sum = 0;	
+	for (int i = 1; i <= k; i++)
+	{
+		float term = -1.0 / i * pow(x, i);
+		sum += term;
+	}
+
+	return sum;
+}
+        </pre>
+        <p>
+            <b>Are you able to reduce the error for single and double precision to the expected range for x = 0.01 and a large enough <code>k</code>, using Kahan's algorithm or some other, simpler approach?</b>
+        </p>
+<section>
+    <h2>Timing results</h2>
+    <p>
+        Let's now take a step back. What did we benefit from doing this in Rcpp? Try writing a version of logapprox in R. One version can be explicit with a loop, but try to also come up with a vectorised version (this is probably hard if you rely on Kahan's algorithm for accuracy).
+        Run a command like microbenchmark (remember that you can install and load the microbenchmark package), e.g. <code>microbenchmark(logapprox(0.01,k), logapproxR1(0.01, k), logapproxR2(0.01, k))</code>. <b>How does the Rcpp version fare compared to an R loop and a vectorised R code?</b>
+    </p>
+    <p>
+        You might want to try <code>cmpfun</code> from the R <code>compiler</code> package to do a byte code compilation of your function, i.e. <code>logapproxRcompiled <- cmpfun(logapproxR1)</code>. Is this version "fast"?
+    </p>
+    <p>
+        In R, the overhead of each operation or code line is frequently large compared to the actual computational time needed for calculations. In C++, the opposite is true. Therefore, it is actually relevant to consider the time needed for each operation.
+        In general, for floating point numbers, addition and multiplication are "fast". Division is markedly slower. Therefore, if you divide frequently by the same number, it can make sense to compute the reciprocal and multiply by it. <code>pow</code>, <code>sin</code>, <code>sqrt</code>
+        and the like are even slower than division (at the very least not faster). <b>Do you see any way to remove the evaluation of a <code>pow</code> and/or a division from the C++ code? Time your new version with microbenchmark on the x = 0.01 case and assess the benefit.</b>
+    </p>
+</section>
+        <section><h2>Extra task</h2>
+            <p>
+                Write a version of Kahan's algorithm in Rcpp accepting any <code>NumericVector</code> as its input. Refer to the textbook and/or the lecture slides for examples on the syntax, if needed. Time it and compare the accuracy of the resulting sum to some examples of your own choosing, against the default <code>sum</code> function in R.
+                <b>Does Kahan's algorithm improve the results for the <code>c(1e20,1,-1e20)</code> example found in the introduction to Tuesday's lecture?</b>
+            </p>
+        </section>
+
+</body>
+</html>
