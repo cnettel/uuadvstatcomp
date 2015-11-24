@@ -6,6 +6,7 @@
 ##################################################################################################
 
 require(mvtnorm)
+require(lhs)
 
 ### Comments #####################################################################################
 ### WHAT THIS CODE DOES:
@@ -21,16 +22,17 @@ require(mvtnorm)
 ##################################################################################################
 
 # Problem-related parameters
-NAME           <- "MVN_BIASINFL1_MC_NOPAR"
+NAME           <- "MVN_BIASINFL1_LHS_NOPAR"
+SAMPLING       <- "LHS"
 DIR            <- paste("C:/Users/anndo252/uuadvstatcomp/Project/SIMULATIONS",NAME,sep="/")
 NPARAMS        <- 5                                        # dimensionality 
 TRUE_CENTER    <- rep(0,NPARAMS)                           # center of true distribution
 TRUE_COV       <- diag(NPARAMS)                            # covariance matrix of true distribution
 
 # Initial proposal distribution parameters
-PROP_CENTER    <- rep(1,NPARAMS)   # center of proposal distribution
+PROP_CENTER    <- rep(1,NPARAMS)                           # center of proposal distribution
 PROP_COV       <- matrix(0,ncol=NPARAMS,nrow=NPARAMS)      # covariance matrix of proposal distribution
-diag(PROP_COV) <- rep(1*2,NPARAMS)
+diag(PROP_COV) <- rep(2,NPARAMS)
 
 stats_distrib           <- data.frame(rbind(PROP_CENTER,diag(PROP_COV),PROP_COV))
 names(stats_distrib)    <- paste0("param",seq(NPARAMS))
@@ -59,12 +61,24 @@ irfun <- function (v){  # calculate IR for one vector
 
 for (i in seq(NIT)) {
   
-  sim <- c() # table with parameter vectors
+  sim <- matrix(0,ncol=NPARAMS,nrow=M[i]) # table with parameter vectors
   
-  # Draw samples from multivariate normal distribution using MONTE-CARLO SAMPLING   
+  # 1a. Draw samples from multivariate normal distribution using MONTE-CARLO SAMPLING   
   
-sim <- rmvnorm(M[i], PROP_CENTER, PROP_COV)  # ncol=NPARAMS, nrows=M[i] (1 parameter vector=1 row) 
-sim <- cbind (sim,seq(M[i]),i)                 # add identifier for each vector
+if (SAMPLING=="MC") {
+  sim <- rmvnorm(M[i], PROP_CENTER, PROP_COV)  # ncol=NPARAMS, nrows=M[i] (1 parameter vector=1 row) 
+}
+  
+  # 1b. Alternative 1: LATIN HYPERCUBE SAMPLING (NB for now  does not use correlations and assumes same variance for all?)   
+
+if (SAMPLING=="LHS") {
+    lh  <- randomLHS(M[i],NPARAMS)                                                 # draw the hypercube
+    for (j in seq(NPARAMS)) {                                                      # loop so we can sample with different means and variances for each parameter
+     sim[,j] <- qnorm(lh[,j],mean=PROP_CENTER[j],sd=sqrt(diag(PROP_COV)[j]))       # transform the hypercube
+    }
+}
+  
+sim            <- cbind (sim,seq(M[i]),i)                 # add identifier for each vector
 colnames(sim)  <- c(paste0("param",seq(NPARAMS)),"vec","iteration")
 
 # Compute their IR (not in parallel - using apply)
