@@ -17,11 +17,12 @@ require(dplyr)
 ##################################################################################################
 
 DIR      <- "C:/Users/anndo252/uuadvstatcomp/Project/SIMULATIONS/"
-PROBLEMS <- c("MVN_TRUE_MC_NOPAR","MVN_INFL1_MC_NOPAR","MVN_INFL2_MC_NOPAR","MVN_DEFL1_MC_NOPAR","MVN_DEFL2_MC_NOPAR",
-              "MVN_BIAS1_MC_NOPAR","MVN_BIAS2_MC_NOPAR", "MVN_BIASINFL1_MC_NOPAR",
-              "MVN_TRUE_LHS_NOPAR","MVN_BIASINFL1_LHS_NOPAR")
+# PROBLEMS <- c("MVN_TRUE_MC_NOPAR","MVN_INFL1_MC_NOPAR","MVN_INFL2_MC_NOPAR","MVN_DEFL1_MC_NOPAR","MVN_DEFL2_MC_NOPAR",
+              # "MVN_BIAS1_MC_NOPAR","MVN_BIAS2_MC_NOPAR", "MVN_BIASINFL1_MC_NOPAR",
+              # "MVN_TRUE_LHS_NOPAR","MVN_BIASINFL1_LHS_NOPAR")
+PROBLEMS   <- dir(DIR,pattern="MVN")
 
-### Read in results
+### Read in results 1
 
 stats <- c()
 
@@ -33,6 +34,9 @@ for (i in PROBLEMS) {
 mstats      <- melt(stats, measure.vars=names(stats)[grep("param",names(stats))])
 mstats$REF  <- 1
 mstats[mstats$Variable=="CENTER",]$REF  <- 0
+mstats[mstats$Variable=="P025",]$REF  <- qnorm(0.025)
+mstats[mstats$Variable=="P975",]$REF  <- qnorm(0.975)
+
 mstats      <- cbind(mstats,matrix(unlist(strsplit(as.character(mstats$NAME),"_")),ncol=4,byrow=TRUE,dimnames = list(NULL,c("DIST","SCENARIO","SAMP","PAR"))))
 
 p1 <- ggplot(filter(mstats,Variable!="COV"), aes(x=Iteration,y=value,group=interaction(variable,SAMP),color=SAMP)) + 
@@ -46,6 +50,38 @@ p1
 png(paste(DIR,"SUMMARY_PLOTS/convergence.png",sep=""),width = 800)
 p1
 dev.off()
+
+### Read in results 2
+
+rawres    <- c()
+rawres.it <- c()
+
+for (i in PROBLEMS) {
+    raw        <- list.files(paste0(DIR,i),pattern="sim_iteration")
+  for (j in raw) {
+    rawres.it.cur  <- read.csv(paste0(DIR,i,"/",j))
+    rawres.it      <- rbind(rawres.it,rawres.it.cur)
+  }
+    rawres.it$NAME <- i
+    rawres         <- rbind(rawres,rawres.it)
+    rawres.it      <- c()
+}
+
+rawres <- cbind(rawres,matrix(unlist(strsplit(as.character(rawres$NAME),"_")),ncol=4,byrow=TRUE,dimnames = list(NULL,c("DIST","SCENARIO","SAMP","PAR"))))
+
+p2 <- ggplot(rawres, aes(x=as.factor(iteration),y=dmv_true,group=interaction(iteration,SAMP),color=SAMP)) + 
+  geom_boxplot() +
+  facet_grid(SCENARIO~.,scales="free_y") +
+  scale_y_log10()
+p2
+
+
+png(paste(DIR,"SUMMARY_PLOTS/sampling_densities.png",sep=""),width = 800, height=800)
+p2
+dev.off()
+
+
+
 
 ### END
 ##################################################################################################

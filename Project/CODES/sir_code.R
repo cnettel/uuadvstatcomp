@@ -22,21 +22,22 @@ require(lhs)
 ##################################################################################################
 
 # Problem-related parameters
-NAME           <- "MVN_BIASINFL1_LHS_NOPAR"
+NAME           <- "MVN_TRUE1NEGCOR_LHS_NOPAR"
 SAMPLING       <- "LHS"
 DIR            <- paste("C:/Users/anndo252/uuadvstatcomp/Project/SIMULATIONS",NAME,sep="/")
 NPARAMS        <- 5                                        # dimensionality 
 TRUE_CENTER    <- rep(0,NPARAMS)                           # center of true distribution
 TRUE_COV       <- diag(NPARAMS)                            # covariance matrix of true distribution
+TRUE_COV[2,1]  <- TRUE_COV[1,2] <- TRUE_COV[NPARAMS,NPARAMS-1] <-  TRUE_COV[NPARAMS-1,NPARAMS] <- -0.5         # correlation between param1&2 and 2nd2last&last
 
 # Initial proposal distribution parameters
-PROP_CENTER    <- rep(1,NPARAMS)                           # center of proposal distribution
+PROP_CENTER    <- rep(0,NPARAMS)                           # center of proposal distribution
 PROP_COV       <- matrix(0,ncol=NPARAMS,nrow=NPARAMS)      # covariance matrix of proposal distribution
-diag(PROP_COV) <- rep(2,NPARAMS)
+diag(PROP_COV) <- rep(1,NPARAMS)
 
-stats_distrib           <- data.frame(rbind(PROP_CENTER,diag(PROP_COV),PROP_COV))
+stats_distrib           <- data.frame(rbind(PROP_CENTER,diag(PROP_COV),PROP_COV,rep(NA,NPARAMS),rep(NA,NPARAMS)))
 names(stats_distrib)    <- paste0("param",seq(NPARAMS))
-stats_distrib$Variable  <- c("CENTER","VAR",rep("COV",NPARAMS))   
+stats_distrib$Variable  <- c("CENTER","VAR",rep("COV",NPARAMS),"P975","P025")   
 stats_distrib$Iteration <- 0
 
 # SIR procedure parameters (stay fixed here)
@@ -49,13 +50,7 @@ N         <- rep(1000,NIT)    # number of resamples to draw for each iteration
 ##################################################################################################
 
 set.seed(123)
-
-### Define function outside of loop 
-
-irfun <- function (v){  # calculate IR for one vector
-  ir <- dmvnorm(v,mean=TRUE_CENTER,sigma=TRUE_COV)/dmvnorm(v,mean=PROP_CENTER,sigma=PROP_COV)
-  return(ir)
-}
+dir.create(DIR)
 
 ### Loop SIR iterations
 
@@ -69,7 +64,7 @@ if (SAMPLING=="MC") {
   sim <- rmvnorm(M[i], PROP_CENTER, PROP_COV)  # ncol=NPARAMS, nrows=M[i] (1 parameter vector=1 row) 
 }
   
-  # 1b. Alternative 1: LATIN HYPERCUBE SAMPLING (NB for now  does not use correlations and assumes same variance for all?)   
+  # 1b. Alternative 1: LATIN HYPERCUBE SAMPLING    
 
 if (SAMPLING=="LHS") {
     lh  <- randomLHS(M[i],NPARAMS)                                                 # draw the hypercube
@@ -83,8 +78,10 @@ colnames(sim)  <- c(paste0("param",seq(NPARAMS)),"vec","iteration")
 
 # Compute their IR (not in parallel - using apply)
   
-ir        <- apply(sim[,-c(ncol(sim),ncol(sim)-1)], 1, irfun)
-sim       <- cbind(sim,ir)
+dmv_true  <- apply(sim[,-c(ncol(sim),ncol(sim)-1)], 1, dmvnorm,mean=TRUE_CENTER,sigma=TRUE_COV)
+dmv_prop  <- apply(sim[,-c(ncol(sim),ncol(sim)-1)], 1, dmvnorm,mean=PROP_CENTER,sigma=PROP_COV)
+ir        <- dmv_true/dmv_prop
+sim       <- cbind(sim,dmv_true,dmv_prop,ir)
 
 # Resample N vectors based on IR and without replacement 
 
@@ -96,10 +93,12 @@ sim       <- cbind(sim,sir)
 
 POST_CENTER <- unname(apply(sim[sim[,"sir"]==1,1:NPARAMS],2,mean))
 POST_COV    <- cov(sim[sim[,"sir"]==1,1:NPARAMS])
+POST_P975   <- unname(apply(sim[sim[,"sir"]==1,1:NPARAMS],2,quantile,p=0.975))
+POST_P025   <- unname(apply(sim[sim[,"sir"]==1,1:NPARAMS],2,quantile,p=0.025))
 
-stats_distrib <- rbind(stats_distrib,data.frame(cbind(rbind(POST_CENTER,diag(POST_COV),POST_COV),
-                                  "Variable"=c("CENTER","VAR",rep("COV",NPARAMS)),
-                                  "Iteration"=rep(i,NPARAMS+2))))
+stats_distrib <- rbind(stats_distrib,data.frame(cbind(rbind(POST_CENTER,diag(POST_COV),POST_COV,POST_P025,POST_P975),
+                                  "Variable"=c("CENTER","VAR",rep("COV",NPARAMS),"P025","P975"),
+                                  "Iteration"=rep(i,NPARAMS+4))))
 
 
 # Output files
