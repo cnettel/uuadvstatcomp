@@ -16,6 +16,13 @@
 
 require(dplyr)
 require(microbenchmark)
+require(devtools)
+# find_rtools()
+require(stringi)
+install_github("hadley/lineprof")
+library(lineprof)
+require(shiny)
+
 source("C:/Users/anndo252/uuadvstatcomp/Project/CODES/sir_function.R")  # load sir function
 
 DIR            <- "C:/Users/anndo252/uuadvstatcomp/Project/SIMULATIONS"
@@ -52,12 +59,27 @@ get_args       <- function (data,name) { # Read sir arguments from sim_spec for 
 
 getargs_and_sir <- function(data=sim_spec,name) {
   args_spec <- get_args(data,name)
-  attach(args_spec)
-  sir.res   <- sir(name=NAME,nparams=NPARAMS, true_center=TRUE_CENTER, true_cov=TRUE_COV, prop_center=PROP_CENTER, prop_cov=PROP_COV, nit=NIT, m=M, n=N, write=F)
+  sir.res   <- sir(name=args_spec$NAME,nparams=args_spec$NPARAMS, true_center=args_spec$TRUE_CENTER, true_cov=args_spec$TRUE_COV, prop_center=args_spec$PROP_CENTER, prop_cov=args_spec$PROP_COV, nit=1, m=100, n=20, write=F)
+  # use only NIT=1 M=100 N=20 for the sake of comparing speed
 }
 
 ### Microbenchmark to see if LHS take more time than MC
 
 microbenchmark(getargs_and_sir(name="MVN_TRUE_MC_NOPAR"),getargs_and_sir(name="MVN_TRUE_LHS_NOPAR"))
 
+### Lineprof to see which parts of the sir take time
+# 
+# profile <- lineprof(sir(name="MVN_TRUE_MC_NOPAR"))
+# shine(profile)
+
+### Try to improve runtime 1: byte code compiler 
+
+getargs_and_sir_comp <- cmpfun(getargs_and_sir)
+# check                <- getargs_and_sir_comp(name="MVN_TRUE_MC_NOPAR")
+
+microbenchmark(getargs_and_sir(name="MVN_TRUE_MC_NOPAR"),getargs_and_sir_comp(name="MVN_TRUE_MC_NOPAR")) # no gain from compiling
+
+### Try to improve runtime 2: parallelization 
+
+microbenchmark(getargs_and_sir(name="MVN_TRUE_MC_NOPAR"),getargs_and_sir(name="MVN_TRUE_MC_PAR"))
 

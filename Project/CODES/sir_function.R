@@ -13,7 +13,8 @@
 ### - stats_distrib: dataframe with posterior mean, variance, CI95% and covmat + same for proposal for all iterations  
 ##################################################################################################
 
-sir <- function (name="SIR", dir=getwd(), sampling="MC", nparams, true_center, true_cov, prop_center, prop_cov, nit, m, n, parallel=FALSE, seed=123, write=TRUE) {
+
+sir <- function (name="SIR", dir=getwd(), sampling="MC", nparams, true_center, true_cov, prop_center, prop_cov, nit, m, n, parallel=FALSE, nodes=2, seed=123, write=TRUE) {
 #   name: name of problem (character, length 1) 
 #   dir: working directory (character, length 1) 
 #   sampling: type of sampling, "MC" or "LHS" (character, length 1) 
@@ -26,6 +27,7 @@ sir <- function (name="SIR", dir=getwd(), sampling="MC", nparams, true_center, t
 #   m: number of samples to generate for each iteration (integer vector, length nit) 
 #   n: number of resamples to draw for each iteration (integer vector, length nit) 
 #   parallel: use parallel computation (logical, length 1) 
+#   nodes: number of nodes to use when in parallel (integer, length 1)  
 #   seed: specify random seed (integer, length 1)   
 #   write: print results (logical, length 1)   
   
@@ -33,21 +35,36 @@ sir <- function (name="SIR", dir=getwd(), sampling="MC", nparams, true_center, t
 #     name <- "test"
 #     dir  <- getwd() 
 #     sampling <- "MC"
-#     nparams <- 1
-#     true_center <- 0
-#     true_cov <- as.matrix(1)
-#     prop_center <- 0 
-#     prop_cov <- as.matrix(1)
+#     nparams <- 2
+#     true_center <- c(0,0)
+#     true_cov <- diag(2)
+#     prop_center <- c(0,0) 
+#     prop_cov <- diag(2)
 #     nit <- 1 
 #     m <- 1000
 #     n <- 100
 #     parallel <- FALSE
+#     nodes <- 2  
 #     seed <- 123  
 #     write <- FALSE
+  
+#  Check bottlenecks 
+#  profile <- lineprof(sir()) # groups by function, not line?
+#  shine(profile)  
+#  Rprof(sir())
 ###################  
+  
+### Load libraries
   
 require(mvtnorm)
 require(lhs)
+if(parallel==TRUE) {
+  require(parallel)
+  cl <- makePSOCKcluster(2)
+  clusterEvalQ(cl, { library(mvtnorm) })
+  } 
+
+### Define seed and output directory
   
 set.seed(seed)
 fulldir <- paste(dir,name,sep="/")
@@ -86,8 +103,11 @@ sim            <- cbind (sim,seq(m[i]),i)                 # add identifier for e
 colnames(sim)  <- c(paste0("param",seq(nparams)),"vec","iteration")
 
 # Compute their IR (not in parallel - using apply)
-  
-dmv_true  <- apply(as.matrix(sim[,-c(ncol(sim),ncol(sim)-1)]), 1, dmvnorm,mean=true_center,sigma=true_cov)
+
+appdv <- function (x,array=1,mean=,sigma) {apply(as.matrix(x), array, dmvnorm, mean=mean ,sigma=sigma)} 
+if(parallel==FALSE) { appdv(as.matrix(sim[,-c(ncol(sim),ncol(sim)-1)]),array=1,mean=true_center,sigma=true_cov) }
+if(parallel==TRUE)  { dmv_true1  <- parLapply(cl, as.matrix(sim[,-c(ncol(sim),ncol(sim)-1)]), appdv, array=1, mean=true_center, sigma=true_cov) }
+
 dmv_prop  <- apply(as.matrix(sim[,-c(ncol(sim),ncol(sim)-1)]), 1, dmvnorm,mean=prop_center,sigma=prop_cov)
 ir        <- dmv_true/dmv_prop
 sim       <- cbind(sim,dmv_true,dmv_prop,ir)
