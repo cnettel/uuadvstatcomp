@@ -14,7 +14,7 @@
 ##################################################################################################
 
 
-sir <- function (name="SIR", dir=getwd(), sampling="MC", nparams, true_center, true_cov, prop_center, prop_cov, nit, m, n, parallel=FALSE, nodes=2, seed=123, write=TRUE) {
+sir <- function (name="SIR", dir=getwd(), sampling="MC", nparams, true_center, true_cov, prop_center, prop_cov, nit, m, n, parallel=0, nodes=1, seed=123, write=TRUE) {
 #   name: name of problem (character, length 1) 
 #   dir: working directory (character, length 1) 
 #   sampling: type of sampling, "MC" or "LHS" (character, length 1) 
@@ -26,7 +26,7 @@ sir <- function (name="SIR", dir=getwd(), sampling="MC", nparams, true_center, t
 #   nit: number of SIR iterations to perform (integer, length 1)  
 #   m: number of samples to generate for each iteration (integer vector, length nit) 
 #   n: number of resamples to draw for each iteration (integer vector, length nit) 
-#   parallel: use parallel computation (logical, length 1) 
+#   parallel: use parallel computation (0 (no parallel), 1 (using parallel library), length 1) 
 #   nodes: number of nodes to use when in parallel (integer, length 1)  
 #   seed: specify random seed (integer, length 1)   
 #   write: print results (logical, length 1)   
@@ -38,12 +38,12 @@ sir <- function (name="SIR", dir=getwd(), sampling="MC", nparams, true_center, t
 #     nparams <- 2
 #     true_center <- c(0,0)
 #     true_cov <- diag(2)
-#     prop_center <- c(0,0) 
+#     prop_center <- c(1,1) 
 #     prop_cov <- diag(2)
 #     nit <- 1 
 #     m <- 1000
 #     n <- 100
-#     parallel <- FALSE
+#     parallel <- 0
 #     nodes <- 2  
 #     seed <- 123  
 #     write <- FALSE
@@ -58,11 +58,6 @@ sir <- function (name="SIR", dir=getwd(), sampling="MC", nparams, true_center, t
   
 require(mvtnorm)
 require(lhs)
-if(parallel==TRUE) {
-  require(parallel)
-  cl <- makePSOCKcluster(2)
-  clusterEvalQ(cl, { library(mvtnorm) })
-  } 
 
 ### Define seed and output directory
   
@@ -78,6 +73,54 @@ stats_distrib$Variable  <- c("CENTER","VAR",rep("COV",nparams),"P975","P025")
 stats_distrib$Iteration <- 0
 all_sim                 <- matrix(0,ncol=nparams+6,nrow=sum(m),dimnames=list(NULL,c(paste0("param",seq(nparams)),"vec","iteration","dmv_true","dmv_prop","ir","sir")))  # sim over all iterations
 
+### Create function to get multivariate density, compatible with parallelization
+
+# appdv <- function(db,low,up,dimen=1,mean,sigma) { # create function that computes appdv for all or subsection of dataset
+#   y   <- apply(as.matrix(db)[low:up,], dimen, dmvnorm, mean=mean ,sigma=sigma) 
+#   return(y)
+# } 
+
+appdv_true <- function(lim) { # create function that computes appdv for all or subsection of dataset
+  y   <- apply(as.matrix(sim[,-c(ncol(sim),ncol(sim)-1)])[lim[1]:lim[2],], 1, dmvnorm, mean=true_center ,sigma=true_cov) 
+  return(y)
+} 
+
+appdv_prop <- function(lim) { # create function that computes appdv for all or subsection of dataset
+  y   <- apply(as.matrix(sim[,-c(ncol(sim),ncol(sim)-1)])[lim[1]:lim[2],], 1, dmvnorm, mean=prop_center ,sigma=prop_cov) 
+  return(y)
+}
+
+### Parallel
+
+if(parallel==1) {
+  
+  require(parallel)
+ 
+  p_appdv_true   <- function(nodes) {
+    cl        <- makePSOCKcluster(nodes)
+    clusterEvalQ(cl, { library(mvtnorm) })     # make sure all nodes have the right library
+    clusterExport(cl=cl, varlist=c("true_center", "true_cov","sim"))
+    intervals <- round(seq(from = 1, to = nrow(sim), length.out = nodes + 1),0) # creates nodes intervals
+    low       <- intervals[-length(intervals)] # create vector of min values to use as lower arguments to appdv function
+    low[-1]   <- low[-1] + 1                   # all except first index need + 1
+    up        <- intervals[-1]                 # create vector of max values to use as upper arguments to appdv function
+    out       <- parLapply(cl = cl, X=Map(c,low,up) , fun = appdv_true) # can only take one argument = limits
+    return(unlist(out))
+  }
+  
+  p_appdv_prop   <- function(nodes) {
+    cl        <- makePSOCKcluster(nodes)
+    clusterEvalQ(cl, { library(mvtnorm) })     # make sure all nodes have the right library
+    clusterExport(cl=cl, varlist=c("prop_center", "prop_cov","sim"))
+    intervals <- round(seq(from = 1, to = nrow(sim), length.out = nodes + 1),0) # creates nodes intervals
+    low       <- intervals[-length(intervals)] # create vector of min values to use as lower arguments to appdv function
+    low[-1]   <- low[-1] + 1                   # all except first index need + 1
+    up        <- intervals[-1]                 # create vector of max values to use as upper arguments to appdv function
+    out       <- parLapply(cl = cl, X=Map(c,low,up) , fun = appdv_prop) # can only take one argument = limits
+    return(unlist(out))
+  }
+}
+
 ### Loop SIR iterations
 
 for (i in seq(nit)) {
@@ -87,7 +130,7 @@ for (i in seq(nit)) {
   # 1a. Draw samples from multivariate normal distribution using MONTE-CARLO SAMPLING   
   
 if (sampling=="MC") {
-  sim <- rmvnorm(m[i], prop_center, prop_cov)  # ncol=nparams, nrows=m[i] (1 parameter vector=1 row) 
+  sim     <- rmvnorm(m[i], prop_center, prop_cov)  # ncol=nparams, nrows=m[i] (1 parameter vector=1 row) 
 }
   
   # 1b. Alternative 1: LATIN HYPERCUBE SAMPLING    
@@ -102,15 +145,20 @@ if (sampling=="LHS") {
 sim            <- cbind (sim,seq(m[i]),i)                 # add identifier for each vector
 colnames(sim)  <- c(paste0("param",seq(nparams)),"vec","iteration")
 
-# Compute their IR (not in parallel - using apply)
+# Compute their IR (in parallel or not)
 
-appdv <- function (x,array=1,mean=,sigma) {apply(as.matrix(x), array, dmvnorm, mean=mean ,sigma=sigma)} 
-if(parallel==FALSE) { appdv(as.matrix(sim[,-c(ncol(sim),ncol(sim)-1)]),array=1,mean=true_center,sigma=true_cov) }
-if(parallel==TRUE)  { dmv_true1  <- parLapply(cl, as.matrix(sim[,-c(ncol(sim),ncol(sim)-1)]), appdv, array=1, mean=true_center, sigma=true_cov) }
+if(parallel==0) { 
+  dmv_true   <- appdv_true(c(1,nrow(sim)))
+  dmv_prop   <- appdv_prop(c(1,nrow(sim)))
+  }
 
-dmv_prop  <- apply(as.matrix(sim[,-c(ncol(sim),ncol(sim)-1)]), 1, dmvnorm,mean=prop_center,sigma=prop_cov)
-ir        <- dmv_true/dmv_prop
-sim       <- cbind(sim,dmv_true,dmv_prop,ir)
+if(parallel==1)  { 
+  dmv_true   <- p_appdv_true(nodes)  
+  dmv_prop   <- p_appdv_prop(nodes)
+  }
+
+  ir         <- dmv_true/dmv_prop 
+  sim        <- cbind(sim,dmv_true,dmv_prop,ir)
 
 # Resample N vectors based on IR and without replacement 
 
