@@ -25,6 +25,7 @@ require(microbenchmark)
 # library(multidplyr)
 # require(shiny)
 require(compiler)
+require(parallel)
 
 source("C:/Users/anndo252/uuadvstatcomp/Project/CODES/sir_function.R")  # load sir function
 
