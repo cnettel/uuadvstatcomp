@@ -16,12 +16,14 @@
 
 require(dplyr)
 require(microbenchmark)
-require(devtools)
+# require(devtools)
 # find_rtools()
-require(stringi)
-install_github("hadley/lineprof")
-library(lineprof)
-require(shiny)
+# require(stringi)
+# install_github("hadley/lineprof")
+# install_github("hadley/multidplyr")
+# library(lineprof)
+# library(multidplyr)
+# require(shiny)
 require(compiler)
 
 source("C:/Users/anndo252/uuadvstatcomp/Project/CODES/sir_function.R")  # load sir function
@@ -83,6 +85,11 @@ microbenchmark(getargs_and_sir(name="MVN_TRUE_MC_NOPAR"),getargs_and_sir_comp(na
 
 ### Try to improve runtime 2: parallelization 
 
-microbenchmark(getargs_and_sir(name="MVN_TRUE_LHS_NOPAR"),getargs_and_sir(name="MVN_TRUE_LHS_PAR",par=1,nodes=2),
-               getargs_and_sir(name="MVN_TRUE_LHS_PAR", par=1,nodes=4)) # 20 and 40 times slower?!
+cl         <- makePSOCKcluster(2)
+clusterEvalQ(cl, { library(mvtnorm) })     # make sure all nodes have the right library
+#   clusterExport(cl=cl, varlist=c("true_center", "true_cov","prop_center", "prop_cov","sim"))
+microbenchmark(getargs_and_sir(name="MVN_TRUE_LHS_NOPAR"),getargs_and_sir(name="MVN_TRUE_LHS_PAR",par=1)) # 20 and 40 times slower?!
 
+stopCluster(cl)
+
+cl         <- makePSOCKcluster(4)

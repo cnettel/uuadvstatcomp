@@ -31,6 +31,8 @@ for (i in PROBLEMS) {
   stats     <- rbind(stats,stats.cur)
 }
 
+# write.csv(stats,paste(DIR,"SUMMARY_PLOTS/stats.csv",sep=""),quote=F,row.names=F)
+
 mstats      <- melt(stats, measure.vars=names(stats)[grep("param",names(stats))])
 mstats$REF  <- 1
 mstats[mstats$Variable=="CENTER",]$REF  <- 0

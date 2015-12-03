@@ -58,7 +58,8 @@ sir <- function (name="SIR", dir=getwd(), sampling="MC", nparams, true_center, t
   
 require(mvtnorm)
 require(lhs)
-require(parallel)
+# require(parallel)
+# require(multidplyr)
   
 ### Define seed and output directory
   
@@ -76,10 +77,10 @@ all_sim                 <- matrix(0,ncol=nparams+6,nrow=sum(m),dimnames=list(NUL
 
 ### Create function to get multivariate density, compatible with parallelization
 
-# appdv <- function(db,low,up,dimen=1,mean,sigma) { # create function that computes appdv for all or subsection of dataset
-#   y   <- apply(as.matrix(db)[low:up,], dimen, dmvnorm, mean=mean ,sigma=sigma) 
-#   return(y)
-# } 
+appdv <- function(db, mean, sigma) { # create function that computes appdv for all or subsection of dataset
+  y   <- apply(as.matrix(db[,-c(ncol(db),ncol(db)-1)]), 1, dmvnorm, mean=mean ,sigma=sigma) 
+  return(y)
+} 
 
 appdv_true <- function(lim) { # create function that computes appdv for all or subsection of dataset
   y   <- apply(as.matrix(sim[,-c(ncol(sim),ncol(sim)-1)])[lim[1]:lim[2],], 1, dmvnorm, mean=true_center ,sigma=true_cov) 
@@ -124,7 +125,7 @@ if(par==0) {
   }
 
 if(par==1)  { 
-  cl         <- makePSOCKcluster(nodes)
+  cl         <- makePSOCKcluster(nodes)      # do it outside
   clusterEvalQ(cl, { library(mvtnorm) })     # make sure all nodes have the right library
   clusterExport(cl=cl, varlist=c("true_center", "true_cov","prop_center", "prop_cov","sim"))
   intervals  <- round(seq(from = 1, to = nrow(sim), length.out = nodes + 1),0) # creates nodes intervals
@@ -134,8 +135,17 @@ if(par==1)  {
   dmv_true   <- do.call(c,parLapply(cl = cl, X=Map(c,low,up) , fun = appdv_true))  
   dmv_prop   <- do.call(c,parLapply(cl = cl, X=Map(c,low,up) , fun = appdv_prop))  
   stopCluster(cl)
-  }
+}
 
+# if(par==2)  { # using multipyr (github/hadley) but function not exported on nodes?
+#   id        <- splitIndices(nrow(sim),nodes)
+#   sim       <- cbind(sim,"index"=rep(seq(length(id)),lengths(id)))
+#   cluster   <- create_cluster(nodes)
+#   sim1      <- partition(as.data.frame(sim),cluster=cluster)
+#   sim2      <- summarise(sim1, out1 = list(appdv()[[1]]))
+#   sim3      <- collect(sim2)
+# }        
+  
   ir         <- dmv_true/dmv_prop 
   sim        <- cbind(sim,dmv_true,dmv_prop,ir)
 
