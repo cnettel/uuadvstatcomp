@@ -125,8 +125,8 @@ if(par==0) {
   }
 
 if(par==1)  { 
-  cl         <- makePSOCKcluster(nodes)      # do it outside
-  clusterEvalQ(cl, { library(mvtnorm) })     # make sure all nodes have the right library
+#   cl         <- makePSOCKcluster(nodes)      # do it outside
+#   clusterEvalQ(cl, { library(mvtnorm) })     # make sure all nodes have the right library
   clusterExport(cl=cl, varlist=c("true_center", "true_cov","prop_center", "prop_cov","sim"))
   intervals  <- round(seq(from = 1, to = nrow(sim), length.out = nodes + 1),0) # creates nodes intervals
   low        <- intervals[-length(intervals)] # create vector of min values to use as lower arguments to appdv function
@@ -134,7 +134,7 @@ if(par==1)  {
   up         <- intervals[-1]                 # create vector of max values to use as upper arguments to appdv function
   dmv_true   <- do.call(c,parLapply(cl = cl, X=Map(c,low,up) , fun = appdv_true))  
   dmv_prop   <- do.call(c,parLapply(cl = cl, X=Map(c,low,up) , fun = appdv_prop))  
-  stopCluster(cl)
+  # stopCluster(cl)
 }
 
 # if(par==2)  { # using multipyr (github/hadley) but function not exported on nodes?
