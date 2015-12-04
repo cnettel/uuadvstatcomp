@@ -61,6 +61,7 @@ require(lhs)
 # require(parallel)
 # require(multidplyr)
   
+  
 ### Define seed and output directory
   
 set.seed(seed)
@@ -125,9 +126,9 @@ if(par==0) {
   }
 
 if(par==1)  { 
-#   cl         <- makePSOCKcluster(nodes)      # do it outside
-#   clusterEvalQ(cl, { library(mvtnorm) })     # make sure all nodes have the right library
-  clusterExport(cl=cl, varlist=c("true_center", "true_cov","prop_center", "prop_cov","sim"))
+#  cl         <- makePSOCKcluster(nodes)      # do it outside
+#  clusterEvalQ(cl, { library(mvtnorm) })     # make sure all nodes have the right library
+  clusterExport(cl=cl, varlist=c("true_center", "true_cov","prop_center", "prop_cov","sim"),envir=environment())  # need environment to find variables in global
   intervals  <- round(seq(from = 1, to = nrow(sim), length.out = nodes + 1),0) # creates nodes intervals
   low        <- intervals[-length(intervals)] # create vector of min values to use as lower arguments to appdv function
   low[-1]    <- low[-1] + 1                   # all except first index need + 1

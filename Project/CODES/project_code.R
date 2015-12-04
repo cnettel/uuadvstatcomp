@@ -86,11 +86,19 @@ microbenchmark(getargs_and_sir(name="MVN_TRUE_MC_NOPAR"),getargs_and_sir_comp(na
 
 ### Try to improve runtime 2: parallelization 
 
-cl         <- makePSOCKcluster(2)
+cl         <- makePSOCKcluster(2)          # create the cluster outside of the benchmark - much faster!!
 clusterEvalQ(cl, { library(mvtnorm) })     # make sure all nodes have the right library
-#   clusterExport(cl=cl, varlist=c("true_center", "true_cov","prop_center", "prop_cov","sim"))
-microbenchmark(getargs_and_sir(name="MVN_TRUE_LHS_NOPAR"),getargs_and_sir(name="MVN_TRUE_LHS_PAR",par=1)) # 20 and 40 times slower?!
-
+# microbenchmark(getargs_and_sir(name="MVN_TRUE_LHS_NOPAR"),getargs_and_sir(name="MVN_TRUE_LHS_PAR",par=1)) # 10 ms slower
+# microbenchmark(getargs_and_sir(name="MVN_TRUE_LHS_NOPAR",nit=1,m=10000,n=1000),getargs_and_sir(name="MVN_TRUE_LHS_PAR",par=1,nit=1,m=10000,n=1000)) # about the same speed
+microbenchmark(getargs_and_sir(name="MVN_TRUE_LHS_NOPAR",nit=5,m=rep(100,5),n=rep(20,5)),getargs_and_sir(name="MVN_TRUE_LHS_PAR",par=1,nit=5,m=rep(100,5),n=rep(20,5))) # 10 ms slower
 stopCluster(cl)
 
 cl         <- makePSOCKcluster(4)
+clusterEvalQ(cl, { library(mvtnorm) })     # make sure all nodes have the right library
+microbenchmark(getargs_and_sir(name="MVN_TRUE_LHS_NOPAR"),getargs_and_sir(name="MVN_TRUE_LHS_PAR",par=1)) # 15 ms slower
+stopCluster(cl)
+
+cl         <- makePSOCKcluster(8)
+clusterEvalQ(cl, { library(mvtnorm) })     # make sure all nodes have the right library
+microbenchmark(getargs_and_sir(name="MVN_TRUE_LHS_NOPAR"),getargs_and_sir(name="MVN_TRUE_LHS_PAR",par=1)) # 20 ms slower
+stopCluster(cl)
